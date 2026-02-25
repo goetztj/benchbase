@@ -35,4 +35,9 @@ public abstract class YCSBConstants {
   public static final int MAX_SCAN = 1000;
 
   public static final String TABLE_NAME = "usertable";
+
+  public static final String DUCKLAKE_PATH =
+      "postgres:dbname=ducklake_catalog host=localhost user=duck password=duckpass";
+
+  public static final String DUCKLAKE_DB = "my_ducklake_ycsb";
 }

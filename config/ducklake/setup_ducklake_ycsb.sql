@@ -1,0 +1,1 @@
+USE my_ducklake_ycsb;

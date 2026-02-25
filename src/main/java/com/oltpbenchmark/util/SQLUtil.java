@@ -17,21 +17,45 @@
 
 package com.oltpbenchmark.util;
 
-import com.oltpbenchmark.api.BenchmarkModule;
-import com.oltpbenchmark.catalog.*;
-import com.oltpbenchmark.types.DatabaseType;
-import com.oltpbenchmark.types.SortDirectionType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLTransientConnectionException;
+import java.sql.SQLWarning;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.oltpbenchmark.api.BenchmarkModule;
+import com.oltpbenchmark.catalog.AbstractCatalog;
+import com.oltpbenchmark.catalog.Catalog;
+import com.oltpbenchmark.catalog.Column;
+import com.oltpbenchmark.catalog.HSQLDBCatalog;
+import com.oltpbenchmark.catalog.Index;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.types.DatabaseType;
+import com.oltpbenchmark.types.SortDirectionType;
 
 public abstract class SQLUtil {
   private static final Logger LOG = LoggerFactory.getLogger(SQLUtil.class);
@@ -549,6 +573,8 @@ WHERE t.name='%s' AND c.name='%s'
       case NOISEPAGE: // fall-through
       case HSQLDB:
         return getCatalogHSQLDB(benchmarkModule);
+      case DUCKDB:
+        return getDuckDBCatalog(databaseType, connection);
       default:
         return getCatalogDirect(databaseType, connection);
     }
@@ -565,6 +591,176 @@ WHERE t.name='%s' AND c.name='%s'
     return new HSQLDBCatalog(benchmarkModule);
   }
 
+  public static final int TYPE_INTEGER = 1;
+  public static final int TYPE_DECIMAL = 2;
+  public static final int TYPE_VARCHAR = 3;
+  public static final int TYPE_DATE = 4;
+
+  private static AbstractCatalog getDuckDBCatalog(DatabaseType databaseType, Connection connection)
+      throws SQLException {
+    DatabaseMetaData md = connection.getMetaData();
+
+    String separator = md.getIdentifierQuoteString();
+
+    Map<String, Table> tables = new HashMap<>();
+
+    Table warehouse = new Table("warehouse", separator);
+
+    warehouse.addColumn(new Column("w_id", separator, warehouse, TYPE_INTEGER, null, false));
+    warehouse.addColumn(new Column("w_ytd", separator, warehouse, TYPE_DECIMAL, null, false));
+    warehouse.addColumn(new Column("w_tax", separator, warehouse, TYPE_DECIMAL, null, false));
+    warehouse.addColumn(new Column("w_name", separator, warehouse, TYPE_VARCHAR, 10, false));
+    warehouse.addColumn(new Column("w_street_1", separator, warehouse, TYPE_VARCHAR, 20, false));
+    warehouse.addColumn(new Column("w_street_2", separator, warehouse, TYPE_VARCHAR, 20, false));
+    warehouse.addColumn(new Column("w_city", separator, warehouse, TYPE_VARCHAR, 20, false));
+    warehouse.addColumn(
+        new Column(
+            "w_state", separator, warehouse, TYPE_VARCHAR, 2, false));
+    warehouse.addColumn(
+        new Column("w_zip", separator, warehouse, TYPE_VARCHAR, 9, false));
+
+    tables.put("warehouse", warehouse);
+
+    Table item = new Table("item", separator);
+    item.addColumn(new Column("i_id", separator, item, TYPE_INTEGER, null, false));
+    item.addColumn(new Column("i_name", separator, item, TYPE_VARCHAR, 24, false));
+    item.addColumn(new Column("i_price", separator, item, TYPE_DECIMAL, null, false));
+    item.addColumn(new Column("i_data", separator, item, TYPE_VARCHAR, 50, false));
+    item.addColumn(new Column("i_im_id", separator, item, TYPE_INTEGER, null, false));
+
+    tables.put("item", item);
+
+    Table stock = new Table("stock", separator);
+
+    stock.addColumn(new Column("s_w_id", separator, stock, TYPE_INTEGER, null, false));
+    stock.addColumn(new Column("s_i_id", separator, stock, TYPE_INTEGER, null, false));
+    stock.addColumn(new Column("s_quantity", separator, stock, TYPE_INTEGER, null, false));
+    stock.addColumn(new Column("s_ytd", separator, stock, TYPE_DECIMAL, null, false));
+    stock.addColumn(new Column("s_order_cnt", separator, stock, TYPE_INTEGER, null, false));
+    stock.addColumn(new Column("s_remote_cnt", separator, stock, TYPE_INTEGER, null, false));
+    stock.addColumn(new Column("s_data", separator, stock, TYPE_VARCHAR, 50, false));
+
+    stock.addColumn(new Column("s_dist_01", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_02", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_03", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_04", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_05", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_06", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_07", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_08", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_09", separator, stock, TYPE_VARCHAR, 24, false));
+    stock.addColumn(new Column("s_dist_10", separator, stock, TYPE_VARCHAR, 24, false));
+
+    tables.put("stock", stock);
+
+    Table district = new Table("district", separator);
+
+    district.addColumn(new Column("d_w_id", separator, district, TYPE_INTEGER, null, false));
+    district.addColumn(new Column("d_id", separator, district, TYPE_INTEGER, null, false));
+    district.addColumn(new Column("d_ytd", separator, district, TYPE_DECIMAL, null, false));
+    district.addColumn(new Column("d_tax", separator, district, TYPE_DECIMAL, null, false));
+    district.addColumn(new Column("d_next_o_id", separator, district, TYPE_INTEGER, null, false));
+    district.addColumn(new Column("d_name", separator, district, TYPE_VARCHAR, 10, false));
+    district.addColumn(new Column("d_street_1", separator, district, TYPE_VARCHAR, 20, false));
+    district.addColumn(new Column("d_street_2", separator, district, TYPE_VARCHAR, 20, false));
+    district.addColumn(new Column("d_city", separator, district, TYPE_VARCHAR, 20, false));
+    district.addColumn(
+        new Column("d_state", separator, district, TYPE_VARCHAR, 2, false));
+    district.addColumn(new Column("d_zip", separator, district, TYPE_VARCHAR, 9, false));
+
+    tables.put("district", district);
+
+    Table customer = new Table("customer", separator);
+
+    customer.addColumn(new Column("c_w_id", separator, customer, TYPE_INTEGER, null, false));
+    customer.addColumn(new Column("c_d_id", separator, customer, TYPE_INTEGER, null, false));
+    customer.addColumn(new Column("c_id", separator, customer, TYPE_INTEGER, null, false));
+    customer.addColumn(new Column("c_discount", separator, customer, TYPE_DECIMAL, null, false));
+    customer.addColumn(new Column("c_credit", separator, customer, TYPE_VARCHAR, 2, false));
+    customer.addColumn(new Column("c_last", separator, customer, TYPE_VARCHAR, 16, false));
+    customer.addColumn(new Column("c_first", separator, customer, TYPE_VARCHAR, 16, false));
+    customer.addColumn(new Column("c_credit_lim", separator, customer, TYPE_DECIMAL, null, false));
+    customer.addColumn(new Column("c_balance", separator, customer, TYPE_DECIMAL, null, false));
+    customer.addColumn(new Column("c_ytd_payment", separator, customer, TYPE_DECIMAL, null, false));
+    customer.addColumn(new Column("c_payment_cnt", separator, customer, TYPE_INTEGER, null, false));
+    customer.addColumn(
+        new Column("c_delivery_cnt", separator, customer, TYPE_INTEGER, null, false));
+
+    customer.addColumn(new Column("c_street_1", separator, customer, TYPE_VARCHAR, 20, false));
+    customer.addColumn(new Column("c_street_2", separator, customer, TYPE_VARCHAR, 20, false));
+    customer.addColumn(new Column("c_city", separator, customer, TYPE_VARCHAR, 20, false));
+    customer.addColumn(new Column("c_state", separator, customer, TYPE_VARCHAR, 2, false));
+    customer.addColumn(new Column("c_zip", separator, customer, TYPE_VARCHAR, 9, false));
+    customer.addColumn(new Column("c_phone", separator, customer, TYPE_VARCHAR, 16, false));
+    customer.addColumn(new Column("c_since", separator, customer, TYPE_VARCHAR, 32, false));
+
+    customer.addColumn(new Column("c_middle", separator, customer, TYPE_VARCHAR, 2, false));
+    customer.addColumn(new Column("c_data", separator, customer, TYPE_VARCHAR, 500, false));
+
+    tables.put("customer", customer);
+
+    Table history = new Table("history", separator);
+
+    history.addColumn(new Column("h_c_id", separator, history, TYPE_INTEGER, null, false));
+    history.addColumn(new Column("h_c_d_id", separator, history, TYPE_INTEGER, null, false));
+    history.addColumn(new Column("h_c_w_id", separator, history, TYPE_INTEGER, null, false));
+    history.addColumn(new Column("h_d_id", separator, history, TYPE_INTEGER, null, false));
+    history.addColumn(new Column("h_w_id", separator, history, TYPE_INTEGER, null, false));
+    history.addColumn(new Column("h_date", separator, history, TYPE_VARCHAR, 32, false));
+
+    history.addColumn(new Column("h_amount", separator, history, TYPE_DECIMAL, null, false));
+    history.addColumn(new Column("h_data", separator, history, TYPE_VARCHAR, 24, false));
+
+    tables.put("history", history);
+
+    Table oorder = new Table("oorder", separator);
+
+    oorder.addColumn(new Column("o_w_id", separator, oorder, TYPE_INTEGER, null, false));
+    oorder.addColumn(new Column("o_d_id", separator, oorder, TYPE_INTEGER, null, false));
+    oorder.addColumn(new Column("o_id", separator, oorder, TYPE_INTEGER, null, false));
+    oorder.addColumn(new Column("o_c_id", separator, oorder, TYPE_INTEGER, null, false));
+
+    oorder.addColumn(new Column("o_carrier_id", separator, oorder, TYPE_INTEGER, null, true));
+
+    oorder.addColumn(new Column("o_ol_cnt", separator, oorder, TYPE_INTEGER, null, false));
+    oorder.addColumn(new Column("o_all_local", separator, oorder, TYPE_INTEGER, null, false));
+
+    oorder.addColumn(new Column("o_entry_d", separator, oorder, TYPE_VARCHAR, 32, false));
+
+    tables.put("oorder", oorder);
+
+    Table new_order = new Table("new_order", separator);
+
+    new_order.addColumn(new Column("no_w_id", separator, new_order, TYPE_INTEGER, null, false));
+    new_order.addColumn(new Column("no_d_id", separator, new_order, TYPE_INTEGER, null, false));
+    new_order.addColumn(new Column("no_o_id", separator, new_order, TYPE_INTEGER, null, false));
+
+    tables.put("new_order", new_order);
+
+    Table order_line = new Table("order_line", separator);
+
+    order_line.addColumn(new Column("ol_w_id", separator, order_line, TYPE_INTEGER, null, false));
+    order_line.addColumn(new Column("ol_d_id", separator, order_line, TYPE_INTEGER, null, false));
+    order_line.addColumn(new Column("ol_o_id", separator, order_line, TYPE_INTEGER, null, false));
+    order_line.addColumn(new Column("ol_number", separator, order_line, TYPE_INTEGER, null, false));
+    order_line.addColumn(new Column("ol_i_id", separator, order_line, TYPE_INTEGER, null, false));
+
+    order_line.addColumn(
+        new Column("ol_delivery_d", separator, order_line, TYPE_VARCHAR, 32, true));
+
+    order_line.addColumn(new Column("ol_amount", separator, order_line, TYPE_DECIMAL, null, false));
+    order_line.addColumn(
+        new Column("ol_supply_w_id", separator, order_line, TYPE_INTEGER, null, false));
+    order_line.addColumn(
+        new Column("ol_quantity", separator, order_line, TYPE_DECIMAL, null, false));
+    order_line.addColumn(
+        new Column("ol_dist_info", separator, order_line, TYPE_VARCHAR, 24, false));
+
+    tables.put("order_line", order_line);
+
+    return new Catalog(tables);
+  }
+
   /** Extract catalog information from the database directly. */
   private static AbstractCatalog getCatalogDirect(DatabaseType databaseType, Connection connection)
       throws SQLException {
@@ -573,6 +769,9 @@ WHERE t.name='%s' AND c.name='%s'
     String separator = md.getIdentifierQuoteString();
     String catalog = connection.getCatalog();
     String schema = connection.getSchema();
+    if (schema == null && databaseType == DatabaseType.DUCKDB) {
+      schema = "main";
+    }
 
     Map<String, Table> tables = new HashMap<>();
 
@@ -612,7 +811,13 @@ WHERE t.name='%s' AND c.name='%s'
             boolean col_nullable = col_rs.getString("IS_NULLABLE").equalsIgnoreCase("YES");
 
             Column catalog_col =
-                new Column(col_name, separator, catalog_tbl, col_type, col_size, col_nullable);
+                new Column(
+                    col_name.toLowerCase(),
+                    separator,
+                    catalog_tbl,
+                    col_type,
+                    col_size,
+                    col_nullable);
 
             catalog_tbl.addColumn(catalog_col);
           }
@@ -646,8 +851,11 @@ WHERE t.name='%s' AND c.name='%s'
             catalog_idx.addColumn(idx_col_name, idx_direction, idx_col_pos);
           }
         }
-
-        tables.put(table_name, catalog_tbl);
+        if (databaseType == DatabaseType.DUCKDB) {
+          tables.put(table_name.toLowerCase(), catalog_tbl);
+        } else {
+          tables.put(table_name, catalog_tbl);
+        }
       }
     }
 

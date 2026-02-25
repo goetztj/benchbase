@@ -17,16 +17,30 @@
 
 package com.oltpbenchmark.benchmarks.tpcc;
 
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.api.LoaderThread;
-import com.oltpbenchmark.benchmarks.tpcc.pojo.*;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.SQLUtil;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.api.LoaderThread;
+import com.oltpbenchmark.api.SQLStmt;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.Customer;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.District;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.History;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.Item;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.NewOrder;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.Oorder;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.OrderLine;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.Stock;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.Warehouse;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.util.SQLUtil;
 
 /** TPC-C Benchmark Loader */
 public final class TPCCLoader extends Loader<TPCCBenchmark> {
@@ -34,6 +48,21 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
   private static final int FIRST_UNPROCESSED_O_ID = 2101;
 
   private final long numWarehouses;
+
+  public SQLStmt attachStmt =
+      new SQLStmt(
+          """
+        CREATE OR REPLACE SECRET secret (TYPE s3, PROVIDER config, KEY_ID 'admin', SECRET 'password', REGION 'us-east-1', ENDPOINT 'localhost:9000', USE_SSL false, URL_STYLE path);
+        ATTACH DATABASE 'ducklake:%s'AS %s (DATA_PATH 's3://warehouse/duckdb/', OVERRIDE_DATA_PATH true);
+        """
+              .formatted(TPCCConstants.DUCKLAKE_PATH, TPCCConstants.DUCKLAKE_DB));
+
+  public SQLStmt useStmt =
+      new SQLStmt(
+          """
+        USE %s;
+        """
+              .formatted(TPCCConstants.DUCKLAKE_DB));
 
   public TPCCLoader(TPCCBenchmark benchmark) {
     super(benchmark);
@@ -70,6 +99,16 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
           new LoaderThread(this.benchmark) {
             @Override
             public void load(Connection conn) {
+              try (PreparedStatement attach = conn.prepareStatement(attachStmt.getSQL())) {
+                attach.execute();
+              } catch (SQLException ignored) {
+              }
+
+              try (PreparedStatement use = conn.prepareStatement(useStmt.getSQL())) {
+                use.execute();
+              } catch (SQLException e) {
+                throw new RuntimeException(e);
+              }
 
               if (LOG.isDebugEnabled()) {
                 LOG.debug("Starting to load WAREHOUSE {}", w_id);
@@ -148,6 +187,17 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
   }
 
   protected void loadItems(Connection conn, int itemCount) {
+    try (PreparedStatement attach = conn.prepareStatement(attachStmt.getSQL())) {
+      attach.execute();
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+
+    try (PreparedStatement use = conn.prepareStatement(useStmt.getSQL())) {
+      use.execute();
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
 
     try (PreparedStatement itemPrepStmt = getInsertStatement(conn, TPCCConstants.TABLENAME_ITEM)) {
 
@@ -197,7 +247,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
         itemPrepStmt.executeBatch();
         itemPrepStmt.clearBatch();
       }
-
     } catch (SQLException se) {
       LOG.error(se.getMessage());
     }
@@ -232,7 +281,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
       whsePrepStmt.setString(idx++, warehouse.w_state);
       whsePrepStmt.setString(idx, warehouse.w_zip);
       whsePrepStmt.execute();
-
     } catch (SQLException se) {
       LOG.error(se.getMessage());
     }
@@ -301,7 +349,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
 
       stockPreparedStatement.executeBatch();
       stockPreparedStatement.clearBatch();
-
     } catch (SQLException se) {
       LOG.error(se.getMessage());
     }
@@ -343,7 +390,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
         distPrepStmt.setString(idx, district.d_zip);
         distPrepStmt.executeUpdate();
       }
-
     } catch (SQLException se) {
       LOG.error(se.getMessage());
     }
@@ -433,7 +479,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
 
       custPrepStmt.executeBatch();
       custPrepStmt.clearBatch();
-
     } catch (SQLException se) {
       LOG.error(se.getMessage());
     }
@@ -483,7 +528,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
 
       histPrepStmt.executeBatch();
       histPrepStmt.clearBatch();
-
     } catch (SQLException se) {
       LOG.error(se.getMessage());
     }
@@ -558,7 +602,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
 
       openOrderStatement.executeBatch();
       openOrderStatement.clearBatch();
-
     } catch (SQLException se) {
       LOG.error(se.getMessage(), se);
     }
@@ -614,7 +657,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
 
       newOrderStatement.executeBatch();
       newOrderStatement.clearBatch();
-
     } catch (SQLException se) {
       LOG.error(se.getMessage(), se);
     }
@@ -684,7 +726,6 @@ public final class TPCCLoader extends Loader<TPCCBenchmark> {
 
       orderLineStatement.executeBatch();
       orderLineStatement.clearBatch();
-
     } catch (SQLException se) {
       LOG.error(se.getMessage(), se);
     }

@@ -17,15 +17,6 @@
 
 package com.oltpbenchmark.api;
 
-import static com.oltpbenchmark.types.State.MEASURE;
-
-import com.oltpbenchmark.*;
-import com.oltpbenchmark.api.Procedure.UserAbortException;
-import com.oltpbenchmark.types.DatabaseType;
-import com.oltpbenchmark.types.State;
-import com.oltpbenchmark.types.TransactionStatus;
-import com.oltpbenchmark.util.Histogram;
-import com.oltpbenchmark.util.SQLUtil;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -39,10 +30,49 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.oltpbenchmark.LatencyRecord;
+import com.oltpbenchmark.Phase;
+import com.oltpbenchmark.SubmittedProcedure;
+import com.oltpbenchmark.WorkloadConfiguration;
+import com.oltpbenchmark.WorkloadState;
+import com.oltpbenchmark.api.Procedure.UserAbortException;
+import com.oltpbenchmark.benchmarks.tpcc.TPCCConstants;
+import com.oltpbenchmark.types.DatabaseType;
+import com.oltpbenchmark.types.State;
+import static com.oltpbenchmark.types.State.MEASURE;
+import com.oltpbenchmark.types.TransactionStatus;
+import com.oltpbenchmark.util.Histogram;
+import com.oltpbenchmark.util.SQLUtil;
+
 public abstract class Worker<T extends BenchmarkModule> implements Runnable {
+
+  public SQLStmt secretStmt =
+      new SQLStmt(
+          """
+    CREATE OR REPLACE SECRET secret (TYPE s3, PROVIDER config, KEY_ID 'admin', SECRET 'password', REGION 'us-east-1', ENDPOINT 'localhost:9000', USE_SSL false, URL_STYLE path);
+    """);
+
+  public SQLStmt attachStmt =
+      new SQLStmt(
+          """
+        ATTACH DATABASE 'ducklake:%s'AS %s;
+        """
+              .formatted(TPCCConstants.DUCKLAKE_PATH, TPCCConstants.DUCKLAKE_DB));
+
+  public SQLStmt useStmt =
+      new SQLStmt(
+          """
+        USE %s;
+        """
+              .formatted(TPCCConstants.DUCKLAKE_DB));
+
+  private static boolean isAttached = false;
+  private static final Object attachLock = new Object();
+
   private static final Logger LOG = LoggerFactory.getLogger(Worker.class);
   private static final Logger ABORT_LOG =
       LoggerFactory.getLogger("com.oltpbenchmark.api.ABORT_LOG");
@@ -84,7 +114,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
       try {
         this.conn = this.benchmark.makeConnection();
         this.conn.setAutoCommit(false);
-        this.conn.setTransactionIsolation(this.configuration.getIsolationMode());
+        // this.conn.setTransactionIsolation(this.configuration.getIsolationMode());
       } catch (SQLException ex) {
         throw new RuntimeException("Failed to connect to database", ex);
       }
@@ -425,7 +455,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             }
             this.conn = this.benchmark.makeConnection();
             this.conn.setAutoCommit(false);
-            this.conn.setTransactionIsolation(this.configuration.getIsolationMode());
+            // this.conn.setTransactionIsolation(this.configuration.getIsolationMode());
           } catch (SQLException ex) {
             if (LOG.isDebugEnabled()) {
               LOG.debug(String.format("%s failed to open a connection...", this));
@@ -473,6 +503,18 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
           break;
 
         } catch (SQLException ex) {
+          if (this.configuration.getDatabaseType() == DatabaseType.DUCKDB) {
+            LOG.debug("DuckLake commit failed; aborting");
+            status = TransactionStatus.ERROR;
+
+            if (conn.isClosed()) {
+              this.conn = this.benchmark.makeConnection();
+              this.conn.setAutoCommit(false);
+              // this.conn.setTransactionIsolation(this.configuration.getIsolationMode());
+            }
+            break;
+          }
+
           // check if we should attempt to ignore connection errors and reconnect
           boolean isConnectionErrorException = SQLUtil.isConnectionErrorException(ex);
 
@@ -745,17 +787,50 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         return;
       }
 
-      String statements = new String(Files.readAllBytes(Paths.get(setupSessionFile)));
-      if (statements.isEmpty()) {
-        return;
-      }
-
       try (Statement stmt = conn.createStatement()) {
-        stmt.execute(statements);
+        String statements = new String(Files.readAllBytes(Paths.get(setupSessionFile)));
+        if (!statements.isEmpty()) {
+          stmt.execute(statements);
+        }
+      } catch (SQLException e) {
+        if (this.getWorkloadConfiguration().getDatabaseType() == DatabaseType.DUCKDB) {
+
+          synchronized (attachLock) {
+            try {
+              conn.setAutoCommit(true);
+
+              try (Statement duckStmt = conn.createStatement()) {
+                if (!isAttached) {
+                  LOG.info("Worker {} performing global DuckLake ATTACH...", this.getId());
+
+                  duckStmt.execute(secretStmt.getSQL());
+
+                  duckStmt.execute(attachStmt.getSQL());
+
+                  isAttached = true;
+                }
+                duckStmt.execute(useStmt.getSQL());
+              }
+
+              conn.setAutoCommit(false);
+            } catch (SQLException ex) {
+              if (ex.getMessage().contains("already exists")) {
+                isAttached = true;
+                try (Statement retryStmt = conn.createStatement()) {
+                  retryStmt.execute(useStmt.getSQL());
+                }
+              } else {
+                LOG.error("Failed to setup DuckLake! Error: {}", ex.getMessage());
+                throw new RuntimeException("DuckLake Session Failure", ex);
+              }
+            }
+          }
+        } else {
+          throw new RuntimeException("Session setup failed", e);
+        }
       }
-      // conn.commit();
-    } catch (SQLException | IOException ex) {
-      throw new RuntimeException("Failed setting up session", ex);
+    } catch (IOException | SQLException ex) {
+      throw new RuntimeException("Critical failure in setupSession", ex);
     }
   }
 

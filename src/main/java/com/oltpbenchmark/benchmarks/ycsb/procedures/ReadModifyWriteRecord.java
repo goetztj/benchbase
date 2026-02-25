@@ -29,7 +29,7 @@ import java.sql.SQLException;
 
 public class ReadModifyWriteRecord extends Procedure {
   public final SQLStmt selectStmt =
-      new SQLStmt("SELECT * FROM " + TABLE_NAME + " where YCSB_KEY=? FOR UPDATE");
+      new SQLStmt("SELECT * FROM " + TABLE_NAME + " where YCSB_KEY=?");
   public final SQLStmt updateAllStmt =
       new SQLStmt(
           "UPDATE "

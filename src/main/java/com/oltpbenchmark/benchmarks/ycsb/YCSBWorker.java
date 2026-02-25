@@ -17,19 +17,28 @@
 
 package com.oltpbenchmark.benchmarks.ycsb;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+
 import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
+import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.api.TransactionType;
 import com.oltpbenchmark.api.Worker;
-import com.oltpbenchmark.benchmarks.ycsb.procedures.*;
+import com.oltpbenchmark.benchmarks.ycsb.procedures.DeleteRecord;
+import com.oltpbenchmark.benchmarks.ycsb.procedures.InsertRecord;
+import com.oltpbenchmark.benchmarks.ycsb.procedures.ReadModifyWriteRecord;
+import com.oltpbenchmark.benchmarks.ycsb.procedures.ReadRecord;
+import com.oltpbenchmark.benchmarks.ycsb.procedures.ScanRecord;
+import com.oltpbenchmark.benchmarks.ycsb.procedures.UpdateRecord;
 import com.oltpbenchmark.distributions.CounterGenerator;
 import com.oltpbenchmark.distributions.UniformGenerator;
 import com.oltpbenchmark.distributions.ZipfianGenerator;
+import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.TextGenerator;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
 
 /**
  * YCSBWorker Implementation I forget who really wrote this but I fixed it up in 2016...
@@ -38,20 +47,31 @@ import java.util.ArrayList;
  */
 class YCSBWorker extends Worker<YCSBBenchmark> {
 
-  private final ZipfianGenerator readRecord;
   private static CounterGenerator insertRecord;
+  private final ZipfianGenerator readRecord;
   private final UniformGenerator randScan;
-
   private final char[] data;
   private final String[] params = new String[YCSBConstants.NUM_FIELDS];
   private final String[] results = new String[YCSBConstants.NUM_FIELDS];
-
   private final UpdateRecord procUpdateRecord;
   private final ScanRecord procScanRecord;
   private final ReadRecord procReadRecord;
   private final ReadModifyWriteRecord procReadModifyWriteRecord;
   private final InsertRecord procInsertRecord;
   private final DeleteRecord procDeleteRecord;
+  public SQLStmt attachStmt =
+      new SQLStmt(
+          """
+        CREATE OR REPLACE SECRET secret (TYPE s3, PROVIDER config, KEY_ID 'admin', SECRET 'password', REGION 'us-east-1', ENDPOINT 'localhost:9000', USE_SSL false, URL_STYLE path);
+        ATTACH DATABASE 'ducklake:%s'AS %s (DATA_PATH 's3://warehouse/duckdb/', OVERRIDE_DATA_PATH true);
+        """
+              .formatted(YCSBConstants.DUCKLAKE_PATH, YCSBConstants.DUCKLAKE_DB));
+  public SQLStmt useStmt =
+      new SQLStmt(
+          """
+        USE %s;
+        """
+              .formatted(YCSBConstants.DUCKLAKE_DB));
 
   public YCSBWorker(YCSBBenchmark benchmarkModule, int id, int init_record_count) {
     super(benchmarkModule, id);
@@ -82,21 +102,62 @@ class YCSBWorker extends Worker<YCSBBenchmark> {
   @Override
   protected TransactionStatus executeWork(Connection conn, TransactionType nextTrans)
       throws UserAbortException, SQLException {
+
     Class<? extends Procedure> procClass = nextTrans.getProcedureClass();
 
-    if (procClass.equals(DeleteRecord.class)) {
-      deleteRecord(conn);
-    } else if (procClass.equals(InsertRecord.class)) {
-      insertRecord(conn);
-    } else if (procClass.equals(ReadModifyWriteRecord.class)) {
-      readModifyWriteRecord(conn);
-    } else if (procClass.equals(ReadRecord.class)) {
-      readRecord(conn);
-    } else if (procClass.equals(ScanRecord.class)) {
-      scanRecord(conn);
-    } else if (procClass.equals(UpdateRecord.class)) {
-      updateRecord(conn);
+    boolean retried =
+        this.getBenchmark().getWorkloadConfiguration().getDatabaseType() != DatabaseType.DUCKDB;
+    boolean success = false;
+
+    while (true) {
+      try {
+        if (procClass.equals(DeleteRecord.class)) {
+          deleteRecord(conn);
+          success = true;
+        } else if (procClass.equals(InsertRecord.class)) {
+          insertRecord(conn);
+          success = true;
+        } else if (procClass.equals(ReadModifyWriteRecord.class)) {
+          readModifyWriteRecord(conn);
+          success = true;
+        } else if (procClass.equals(ReadRecord.class)) {
+          readRecord(conn);
+          success = true;
+        } else if (procClass.equals(ScanRecord.class)) {
+          scanRecord(conn);
+          success = true;
+        } else if (procClass.equals(UpdateRecord.class)) {
+          updateRecord(conn);
+          success = true;
+        }
+      } catch (Exception e) {
+        if (this.getBenchmark().getWorkloadConfiguration().getDatabaseType()
+            == DatabaseType.DUCKDB) {
+          try {
+            // PreparedStatement attach = conn.prepareStatement(attachStmt.getSQL());
+            // attach.execute();
+
+            PreparedStatement use = conn.prepareStatement(useStmt.getSQL());
+            use.execute();
+          } catch (Exception ignored) {
+          }
+        } else {
+          throw e;
+        }
+        success = false;
+      }
+
+      if (!success && !retried) {
+        retried = true;
+      } else {
+        break;
+      }
     }
+
+    if (!success) {
+      return (TransactionStatus.ERROR);
+    }
+
     return (TransactionStatus.SUCCESS);
   }
 

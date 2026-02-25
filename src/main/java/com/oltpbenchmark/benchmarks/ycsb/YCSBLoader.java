@@ -17,19 +17,41 @@
 
 package com.oltpbenchmark.benchmarks.ycsb;
 
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.api.LoaderThread;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.SQLUtil;
-import com.oltpbenchmark.util.TextGenerator;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.api.LoaderThread;
+import com.oltpbenchmark.api.SQLStmt;
+import com.oltpbenchmark.catalog.Column;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.types.DatabaseType;
+import com.oltpbenchmark.util.SQLUtil;
+import static com.oltpbenchmark.util.SQLUtil.TYPE_INTEGER;
+import static com.oltpbenchmark.util.SQLUtil.TYPE_VARCHAR;
+import com.oltpbenchmark.util.TextGenerator;
+
 class YCSBLoader extends Loader<YCSBBenchmark> {
   private final int num_record;
+
+  public SQLStmt attachStmt =
+      new SQLStmt(
+          """
+        CREATE OR REPLACE SECRET secret (TYPE s3, PROVIDER config, KEY_ID 'admin', SECRET 'password', REGION 'us-east-1', ENDPOINT 'localhost:9000', USE_SSL false, URL_STYLE path);
+        ATTACH DATABASE 'ducklake:%s'AS %s (DATA_PATH 's3://warehouse/duckdb/', OVERRIDE_DATA_PATH true);
+        """
+              .formatted(YCSBConstants.DUCKLAKE_PATH, YCSBConstants.DUCKLAKE_DB));
+
+  public SQLStmt useStmt =
+      new SQLStmt(
+          """
+        USE %s;
+        """
+              .formatted(YCSBConstants.DUCKLAKE_DB));
 
   public YCSBLoader(YCSBBenchmark benchmark) {
     super(benchmark);
@@ -62,7 +84,43 @@ class YCSBLoader extends Loader<YCSBBenchmark> {
   }
 
   private void loadRecords(Connection conn, int start, int stop) throws SQLException {
-    Table catalog_tbl = benchmark.getCatalog().getTable("USERTABLE");
+    if (getDatabaseType() == DatabaseType.DUCKDB) {
+      try (PreparedStatement attach = conn.prepareStatement(attachStmt.getSQL())) {
+        attach.execute();
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+
+      try (PreparedStatement use = conn.prepareStatement(useStmt.getSQL())) {
+        use.execute();
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    DatabaseMetaData md = conn.getMetaData();
+
+    String separator = md.getIdentifierQuoteString();
+
+    Table catalog_tbl = new Table("USERTABLE", separator);
+
+    if (this.getDatabaseType() == DatabaseType.DUCKDB) {
+      catalog_tbl.addColumn(
+          new Column("ycsb_key", separator, catalog_tbl, TYPE_INTEGER, null, false));
+      catalog_tbl.addColumn(new Column("field1", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field2", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field3", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field4", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field5", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field6", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field7", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field8", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(new Column("field9", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+      catalog_tbl.addColumn(
+          new Column("field10", separator, catalog_tbl, TYPE_VARCHAR, 100, false));
+    } else {
+      catalog_tbl = benchmark.getCatalog().getTable("USERTABLE");
+    }
 
     String sql = SQLUtil.getInsertSQL(catalog_tbl, this.getDatabaseType());
     try (PreparedStatement stmt = conn.prepareStatement(sql)) {

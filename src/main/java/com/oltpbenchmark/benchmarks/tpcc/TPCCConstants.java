@@ -27,4 +27,7 @@ public abstract class TPCCConstants {
   public static final String TABLENAME_OPENORDER = "oorder";
   public static final String TABLENAME_ORDERLINE = "order_line";
   public static final String TABLENAME_NEWORDER = "new_order";
+  public static final String DUCKLAKE_PATH =
+      "postgres:dbname=ducklake_catalog host=localhost user=duck password=duckpass";
+  public static final String DUCKLAKE_DB = "my_ducklake";
 }
