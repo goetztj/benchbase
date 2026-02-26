@@ -1,4 +1,4 @@
-# BenchBase
+# BenchBase for DuckLake 
 
 [![BenchBase (Java with Maven)](https://github.com/cmu-db/benchbase/actions/workflows/maven.yml/badge.svg?branch=main)](https://github.com/cmu-db/benchbase/actions/workflows/maven.yml)
 
@@ -16,34 +16,42 @@ BenchBase (formerly [OLTPBench](https://github.com/oltpbenchmark/oltpbench/)) is
 
 ---
 
-## Quickstart
+## Quickstart 
 
-To clone and build BenchBase using the `postgres` profile,
+To clone and build BenchBase using the `duckdb` profile,
 
 ```bash
 git clone --depth 1 https://github.com/cmu-db/benchbase.git
 cd benchbase
-./mvnw clean package -P postgres
+./mvnw clean package -P duckdb -DskipTests
 ```
 
 This produces artifacts in the `target` folder, which can be extracted,
 
 ```bash
 cd target
-tar xvzf benchbase-postgres.tgz
-cd benchbase-postgres
+tar xvzf benchbase-duckdb.tgz
+cd benchbase-duckdb
 ```
 
 Inside this folder, you can run BenchBase. For example, to execute the `tpcc` benchmark,
 
 ```bash
-java -jar benchbase.jar -b tpcc -c config/postgres/sample_tpcc_config.xml --create=true --load=true --execute=true
+java -jar benchbase.jar -b tpcc -c config/ducklake/sample_tpcc_config.xml --create=true --load=true --execute=true
 ```
 
 A full list of options can be displayed,
 
 ```bash
 java -jar benchbase.jar -h
+```
+
+To run all experiments from the LakeVilla paper
+
+```bash
+cp ./config/ducklake/run_all.sh .
+chmod +x run_all.sh
+./run_all.sh
 ```
 
 ---
