@@ -67,6 +67,10 @@ public final class YCSBBenchmark extends BenchmarkModule {
   /** The constant used in the zipfian distribution (to modify the skew) */
   protected final double skewFactor;
 
+  protected final String distribution;
+  protected final int intervalSteps;
+  protected final int intervalDistance;
+
   public YCSBBenchmark(WorkloadConfiguration workConf) {
     super(workConf);
 
@@ -88,6 +92,12 @@ public final class YCSBBenchmark extends BenchmarkModule {
       }
     }
     this.skewFactor = skewFactor;
+
+    this.distribution = workConf.getXmlConfig().getString("requestdistribution", "zipfian");
+
+    // Parse your new custom parameters
+    this.intervalSteps = workConf.getXmlConfig().getInt("intervalSteps", 1);
+    this.intervalDistance = workConf.getXmlConfig().getInt("intervalDistance", 0);
   }
 
   @Override

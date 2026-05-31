@@ -13,6 +13,10 @@
     <!-- Scalefactor in YCSB is *1000 the number of rows in the USERTABLE-->
     <scalefactor>1</scalefactor>
 
+    <requestdistribution>interval</requestdistribution>
+    <intervalSteps>32</intervalSteps>
+    <intervalDistance>50</intervalDistance>
+
     <!-- Optional: Override the zipfian constant to modify the skew -->
     <!-- <skewFactor>0.99</skewFactor> -->
 

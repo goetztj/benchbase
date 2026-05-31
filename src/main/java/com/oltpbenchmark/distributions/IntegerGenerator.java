@@ -39,6 +39,10 @@ public abstract class IntegerGenerator extends Generator {
    */
   public abstract int nextInt();
 
+  public int nextInt(long txnId){
+    return nextInt();
+  }
+
   /** Generate the next string in the distribution. */
   public String nextString() {
     return "" + nextInt();

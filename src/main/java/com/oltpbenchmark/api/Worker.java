@@ -832,6 +832,13 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
     } catch (IOException | SQLException ex) {
       throw new RuntimeException("Critical failure in setupSession", ex);
     }
+
+    try{
+      this.conn.setAutoCommit(false);
+    } catch (Exception e){
+      System.err.println("Begin not possible!");
+    }
+    System.err.println("setting autocommit to false");
   }
 
   /**
@@ -848,6 +855,20 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
   /** Called at the end of the test to do any clean up that may be required. */
   public void tearDown() {
+    System.err.println("starting commit");
+    boolean success = true;
+    try {
+      this.conn.commit();
+    } catch (Exception e){
+      success = false;
+    }
+
+    if(success){
+      System.err.println("commit done");
+    } else {
+      System.err.println("Error committing");
+    }
+
     if (!this.configuration.getNewConnectionPerTxn() && this.conn != null) {
       try {
         conn.close();
