@@ -48,7 +48,8 @@ public enum DatabaseType {
   SQLSERVER(true, true, true, true),
   TIMESTEN(true, false),
   PHOENIX(true, true),
-  DUCKDB(true, true);
+  DUCKDB(true, true),
+  TRINO(true, true);
 
   DatabaseType(
       boolean escapeNames,

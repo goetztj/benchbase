@@ -231,6 +231,25 @@
             </dependencies>
         </profile>
         <profile>
+            <id>trino</id>
+            <activation>
+                <property>
+                    <name>env.BENCHBASE_PROFILE</name>
+                    <value>trino</value>
+                </property>
+            </activation>
+            <properties>
+                <classifier>trino</classifier>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>io.trino</groupId>
+                    <artifactId>trino-jdbc</artifactId>
+                    <version>482</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
             <id>sqlserver</id>
             <activation>
                 <property>
