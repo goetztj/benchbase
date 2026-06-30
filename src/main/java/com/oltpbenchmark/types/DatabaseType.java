@@ -49,7 +49,8 @@ public enum DatabaseType {
   TIMESTEN(true, false),
   PHOENIX(true, true),
   DUCKDB(true, true),
-  TRINO(true, true);
+  TRINO(true, true),
+  HANA(true, true);
 
   DatabaseType(
       boolean escapeNames,

@@ -17,12 +17,8 @@
 
 package com.oltpbenchmark.benchmarks.ycsb;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
+import static com.oltpbenchmark.util.SQLUtil.TYPE_INTEGER;
+import static com.oltpbenchmark.util.SQLUtil.TYPE_VARCHAR;
 
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.LoaderThread;
@@ -31,9 +27,13 @@ import com.oltpbenchmark.catalog.Column;
 import com.oltpbenchmark.catalog.Table;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.SQLUtil;
-import static com.oltpbenchmark.util.SQLUtil.TYPE_INTEGER;
-import static com.oltpbenchmark.util.SQLUtil.TYPE_VARCHAR;
 import com.oltpbenchmark.util.TextGenerator;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 class YCSBLoader extends Loader<YCSBBenchmark> {
   private final int num_record;

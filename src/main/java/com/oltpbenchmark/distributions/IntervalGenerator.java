@@ -2,9 +2,7 @@ package com.oltpbenchmark.distributions;
 
 import java.util.Random;
 
-/**
- * BenchBase implementation of the IntervalGenerator logic.
- */
+/** BenchBase implementation of the IntervalGenerator logic. */
 public class IntervalGenerator extends IntegerGenerator {
 
   private final Random random;
@@ -27,9 +25,7 @@ public class IntervalGenerator extends IntegerGenerator {
     return nextInt(transactionCounter++);
   }
 
-  /**
-   * Overloaded to allow passing a specific sequence ID from the Worker.
-   */
+  /** Overloaded to allow passing a specific sequence ID from the Worker. */
   @Override
   public int nextInt(long txnId) {
     int offset = (distance > 0) ? (random.nextInt(distance)) : 0;

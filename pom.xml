@@ -13,8 +13,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>21</java.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
         <buildDirectory>${project.basedir}/target</buildDirectory>
         <!--
             Provids a way to limit which assembly package formats we produce.
@@ -246,6 +245,25 @@
                     <groupId>io.trino</groupId>
                     <artifactId>trino-jdbc</artifactId>
                     <version>482</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>hana</id>
+            <activation>
+                <property>
+                    <name>env.BENCHBASE_PROFILE</name>
+                    <value>hana</value>
+                </property>
+            </activation>
+            <properties>
+                <classifier>hana</classifier>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.sap.cloud.db.jdbc</groupId>
+                    <artifactId>ngdbc</artifactId>
+                    <version>2.29.7</version>
                 </dependency>
             </dependencies>
         </profile>

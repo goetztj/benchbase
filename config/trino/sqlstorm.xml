@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<parameters>
+    <type>trino</type>
+    <driver>io.trino.jdbc.TrinoDriver</driver>
+    <url>jdbc:trino://localhost:8080/memory/default</url>
+    <username>admin</username>
+    <password></password>
+    <newConnectionPerTxn>true</newConnectionPerTxn>
+    <isolation>TRANSACTION_READ_COMMITTED</isolation>
+    
+    <benchmark>sqlstorm</benchmark>
+    
+    <queryDir>/path/to/SQLStorm/v1.0/stackoverflow/queries_generated</queryDir>
+
+    <terminals>1</terminals>
+    <works>
+        <work>
+            <time>600</time>
+            <rate>unlimited</rate>
+            <weights>100</weights>
+        </work>
+    </works>
+    <transactiontypes>
+        <transactiontype>
+            <name>ExecuteQuery</name>
+        </transactiontype>
+    </transactiontypes>
+</parameters>

@@ -17,6 +17,15 @@
 
 package com.oltpbenchmark.util;
 
+import com.oltpbenchmark.api.BenchmarkModule;
+import com.oltpbenchmark.catalog.AbstractCatalog;
+import com.oltpbenchmark.catalog.Catalog;
+import com.oltpbenchmark.catalog.Column;
+import com.oltpbenchmark.catalog.HSQLDBCatalog;
+import com.oltpbenchmark.catalog.Index;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.types.DatabaseType;
+import com.oltpbenchmark.types.SortDirectionType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -43,19 +52,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.oltpbenchmark.api.BenchmarkModule;
-import com.oltpbenchmark.catalog.AbstractCatalog;
-import com.oltpbenchmark.catalog.Catalog;
-import com.oltpbenchmark.catalog.Column;
-import com.oltpbenchmark.catalog.HSQLDBCatalog;
-import com.oltpbenchmark.catalog.Index;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.types.DatabaseType;
-import com.oltpbenchmark.types.SortDirectionType;
 
 public abstract class SQLUtil {
   private static final Logger LOG = LoggerFactory.getLogger(SQLUtil.class);
@@ -613,11 +611,8 @@ WHERE t.name='%s' AND c.name='%s'
     warehouse.addColumn(new Column("w_street_1", separator, warehouse, TYPE_VARCHAR, 20, false));
     warehouse.addColumn(new Column("w_street_2", separator, warehouse, TYPE_VARCHAR, 20, false));
     warehouse.addColumn(new Column("w_city", separator, warehouse, TYPE_VARCHAR, 20, false));
-    warehouse.addColumn(
-        new Column(
-            "w_state", separator, warehouse, TYPE_VARCHAR, 2, false));
-    warehouse.addColumn(
-        new Column("w_zip", separator, warehouse, TYPE_VARCHAR, 9, false));
+    warehouse.addColumn(new Column("w_state", separator, warehouse, TYPE_VARCHAR, 2, false));
+    warehouse.addColumn(new Column("w_zip", separator, warehouse, TYPE_VARCHAR, 9, false));
 
     tables.put("warehouse", warehouse);
 
@@ -664,8 +659,7 @@ WHERE t.name='%s' AND c.name='%s'
     district.addColumn(new Column("d_street_1", separator, district, TYPE_VARCHAR, 20, false));
     district.addColumn(new Column("d_street_2", separator, district, TYPE_VARCHAR, 20, false));
     district.addColumn(new Column("d_city", separator, district, TYPE_VARCHAR, 20, false));
-    district.addColumn(
-        new Column("d_state", separator, district, TYPE_VARCHAR, 2, false));
+    district.addColumn(new Column("d_state", separator, district, TYPE_VARCHAR, 2, false));
     district.addColumn(new Column("d_zip", separator, district, TYPE_VARCHAR, 9, false));
 
     tables.put("district", district);

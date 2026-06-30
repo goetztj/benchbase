@@ -1,6 +1,6 @@
 # Try to read some values from the environment or else set some defaults.
 # The profiles to build:
-export BENCHBASE_PROFILES="${BENCHBASE_PROFILES:-cockroachdb mariadb mysql oracle phoenix postgres spanner sqlite sqlserver duckdb trino}"
+export BENCHBASE_PROFILES="${BENCHBASE_PROFILES:-cockroachdb mariadb mysql oracle phoenix postgres spanner sqlite sqlserver duckdb trino hana}"
 # The profile to run:
 export BENCHBASE_PROFILE="${BENCHBASE_PROFILE:-postgres}"
 # Whether to clean the build before/after/both/never:

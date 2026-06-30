@@ -17,6 +17,20 @@
 
 package com.oltpbenchmark.api;
 
+import static com.oltpbenchmark.types.State.MEASURE;
+
+import com.oltpbenchmark.LatencyRecord;
+import com.oltpbenchmark.Phase;
+import com.oltpbenchmark.SubmittedProcedure;
+import com.oltpbenchmark.WorkloadConfiguration;
+import com.oltpbenchmark.WorkloadState;
+import com.oltpbenchmark.api.Procedure.UserAbortException;
+import com.oltpbenchmark.benchmarks.tpcc.TPCCConstants;
+import com.oltpbenchmark.types.DatabaseType;
+import com.oltpbenchmark.types.State;
+import com.oltpbenchmark.types.TransactionStatus;
+import com.oltpbenchmark.util.Histogram;
+import com.oltpbenchmark.util.SQLUtil;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -30,23 +44,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.oltpbenchmark.LatencyRecord;
-import com.oltpbenchmark.Phase;
-import com.oltpbenchmark.SubmittedProcedure;
-import com.oltpbenchmark.WorkloadConfiguration;
-import com.oltpbenchmark.WorkloadState;
-import com.oltpbenchmark.api.Procedure.UserAbortException;
-import com.oltpbenchmark.benchmarks.tpcc.TPCCConstants;
-import com.oltpbenchmark.types.DatabaseType;
-import com.oltpbenchmark.types.State;
-import static com.oltpbenchmark.types.State.MEASURE;
-import com.oltpbenchmark.types.TransactionStatus;
-import com.oltpbenchmark.util.Histogram;
-import com.oltpbenchmark.util.SQLUtil;
 
 public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
@@ -833,9 +832,9 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
       throw new RuntimeException("Critical failure in setupSession", ex);
     }
 
-    try{
+    try {
       this.conn.setAutoCommit(false);
-    } catch (Exception e){
+    } catch (Exception e) {
       System.err.println("Begin not possible!");
     }
     System.err.println("setting autocommit to false");
@@ -859,11 +858,11 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
     boolean success = true;
     try {
       this.conn.commit();
-    } catch (Exception e){
+    } catch (Exception e) {
       success = false;
     }
 
-    if(success){
+    if (success) {
       System.err.println("commit done");
     } else {
       System.err.println("Error committing");

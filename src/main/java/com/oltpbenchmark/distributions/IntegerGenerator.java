@@ -39,7 +39,7 @@ public abstract class IntegerGenerator extends Generator {
    */
   public abstract int nextInt();
 
-  public int nextInt(long txnId){
+  public int nextInt(long txnId) {
     return nextInt();
   }
 

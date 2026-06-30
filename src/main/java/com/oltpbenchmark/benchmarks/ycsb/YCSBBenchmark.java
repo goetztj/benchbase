@@ -17,17 +17,8 @@
 
 package com.oltpbenchmark.benchmarks.ycsb;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static com.oltpbenchmark.util.SQLUtil.TYPE_INTEGER;
+import static com.oltpbenchmark.util.SQLUtil.TYPE_VARCHAR;
 
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
@@ -39,8 +30,16 @@ import com.oltpbenchmark.catalog.Column;
 import com.oltpbenchmark.catalog.Table;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.SQLUtil;
-import static com.oltpbenchmark.util.SQLUtil.TYPE_INTEGER;
-import static com.oltpbenchmark.util.SQLUtil.TYPE_VARCHAR;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class YCSBBenchmark extends BenchmarkModule {
 

@@ -36,7 +36,6 @@ import com.oltpbenchmark.distributions.ZipfianGenerator;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.TextGenerator;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -47,9 +46,7 @@ import java.util.ArrayList;
  *
  * @author pavlo
  */
-class YCSBWorker
-  extends Worker<YCSBBenchmark>
-{
+class YCSBWorker extends Worker<YCSBBenchmark> {
 
   private static CounterGenerator insertRecord;
   private final IntegerGenerator readRecord;
@@ -64,37 +61,37 @@ class YCSBWorker
   private final InsertRecord procInsertRecord;
   private final DeleteRecord procDeleteRecord;
   public SQLStmt attachStmt =
-    new SQLStmt(
-      """
+      new SQLStmt(
+          """
         CREATE OR REPLACE SECRET secret (TYPE s3, PROVIDER config, KEY_ID 'admin', SECRET 'password', REGION 'us-east-1', ENDPOINT 'localhost:9000', USE_SSL false, URL_STYLE path);
         ATTACH DATABASE 'ducklake:%s'AS %s (DATA_PATH 's3://warehouse/duckdb/', OVERRIDE_DATA_PATH true);
         """
-        .formatted(YCSBConstants.DUCKLAKE_PATH, YCSBConstants.DUCKLAKE_DB));
+              .formatted(YCSBConstants.DUCKLAKE_PATH, YCSBConstants.DUCKLAKE_DB));
   public SQLStmt useStmt =
-    new SQLStmt(
-      """
+      new SQLStmt(
+          """
         USE %s;
         """
-        .formatted(YCSBConstants.DUCKLAKE_DB));
+              .formatted(YCSBConstants.DUCKLAKE_DB));
 
-  public YCSBWorker(YCSBBenchmark benchmarkModule, int id, int init_record_count)
-  {
+  public YCSBWorker(YCSBBenchmark benchmarkModule, int id, int init_record_count) {
     super(benchmarkModule, id);
     this.data = new char[benchmarkModule.fieldSize];
     if (benchmarkModule.distribution.equalsIgnoreCase("interval")) {
-      int l = benchmarkModule.intervalSteps == 0 ? 1 : init_record_count / (1 + ((benchmarkModule.intervalSteps - 1) * (1 - (benchmarkModule.intervalDistance / 100))));
+      int l =
+          benchmarkModule.intervalSteps == 0
+              ? 1
+              : init_record_count
+                  / (1
+                      + ((benchmarkModule.intervalSteps - 1)
+                          * (1 - (benchmarkModule.intervalDistance / 100))));
       int s = l - (l * (1 - (benchmarkModule.intervalDistance / 100)));
 
-      this.readRecord = new IntervalGenerator(
-        s,
-        l,
-        init_record_count
-      );
-    }
-    else {
+      this.readRecord = new IntervalGenerator(s, l, init_record_count);
+    } else {
       this.readRecord =
-        new ZipfianGenerator(
-          rng(), init_record_count, benchmarkModule.skewFactor); // pool for read keys
+          new ZipfianGenerator(
+              rng(), init_record_count, benchmarkModule.skewFactor); // pool for read keys
     }
     this.randScan = new UniformGenerator(1, YCSBConstants.MAX_SCAN);
 
@@ -118,12 +115,11 @@ class YCSBWorker
 
   @Override
   protected TransactionStatus executeWork(Connection conn, TransactionType nextTrans)
-    throws UserAbortException, SQLException
-  {
+      throws UserAbortException, SQLException {
     Class<? extends Procedure> procClass = nextTrans.getProcedureClass();
 
     boolean retried =
-      this.getBenchmark().getWorkloadConfiguration().getDatabaseType() != DatabaseType.DUCKDB;
+        this.getBenchmark().getWorkloadConfiguration().getDatabaseType() != DatabaseType.DUCKDB;
     boolean success = false;
 
     while (true) {
@@ -131,42 +127,34 @@ class YCSBWorker
         if (procClass.equals(DeleteRecord.class)) {
           deleteRecord(conn);
           success = true;
-        }
-        else if (procClass.equals(InsertRecord.class)) {
+        } else if (procClass.equals(InsertRecord.class)) {
           insertRecord(conn);
           success = true;
-        }
-        else if (procClass.equals(ReadModifyWriteRecord.class)) {
+        } else if (procClass.equals(ReadModifyWriteRecord.class)) {
           readModifyWriteRecord(conn);
           success = true;
-        }
-        else if (procClass.equals(ReadRecord.class)) {
+        } else if (procClass.equals(ReadRecord.class)) {
           readRecord(conn);
           success = true;
-        }
-        else if (procClass.equals(ScanRecord.class)) {
+        } else if (procClass.equals(ScanRecord.class)) {
           scanRecord(conn);
           success = true;
-        }
-        else if (procClass.equals(UpdateRecord.class)) {
+        } else if (procClass.equals(UpdateRecord.class)) {
           updateRecord(conn);
           success = true;
         }
-      }
-      catch (Exception e) {
+      } catch (Exception e) {
         if (this.getBenchmark().getWorkloadConfiguration().getDatabaseType()
-          == DatabaseType.DUCKDB) {
+            == DatabaseType.DUCKDB) {
           try {
             // PreparedStatement attach = conn.prepareStatement(attachStmt.getSQL());
             // attach.execute();
 
             PreparedStatement use = conn.prepareStatement(useStmt.getSQL());
             use.execute();
+          } catch (Exception ignored) {
           }
-          catch (Exception ignored) {
-          }
-        }
-        else {
+        } else {
           throw e;
         }
         success = false;
@@ -174,8 +162,7 @@ class YCSBWorker
 
       if (!success && !retried) {
         retried = true;
-      }
-      else {
+      } else {
         break;
       }
     }
@@ -187,54 +174,41 @@ class YCSBWorker
     return (TransactionStatus.SUCCESS);
   }
 
-  private void updateRecord(Connection conn)
-    throws SQLException
-  {
+  private void updateRecord(Connection conn) throws SQLException {
     int keyname = readRecord.nextInt(this.getId());
     this.buildParameters();
     this.procUpdateRecord.run(conn, keyname, this.params);
   }
 
-  private void scanRecord(Connection conn)
-    throws SQLException
-  {
+  private void scanRecord(Connection conn) throws SQLException {
     int keyname = readRecord.nextInt(this.getId());
     int count = randScan.nextInt();
     this.procScanRecord.run(conn, keyname, count, new ArrayList<>());
   }
 
-  private void readRecord(Connection conn)
-    throws SQLException
-  {
+  private void readRecord(Connection conn) throws SQLException {
     int keyname = readRecord.nextInt(this.getId());
     this.procReadRecord.run(conn, keyname, this.results);
   }
 
-  private void readModifyWriteRecord(Connection conn)
-    throws SQLException
-  {
+  private void readModifyWriteRecord(Connection conn) throws SQLException {
     int keyname = readRecord.nextInt(this.getId());
     this.buildParameters();
     this.procReadModifyWriteRecord.run(conn, keyname, this.params, this.results);
   }
 
-  private void insertRecord(Connection conn)
-    throws SQLException
-  {
+  private void insertRecord(Connection conn) throws SQLException {
     int keyname = insertRecord.nextInt();
     this.buildParameters();
     this.procInsertRecord.run(conn, keyname, this.params);
   }
 
-  private void deleteRecord(Connection conn)
-    throws SQLException
-  {
+  private void deleteRecord(Connection conn) throws SQLException {
     int keyname = readRecord.nextInt(this.getId());
     this.procDeleteRecord.run(conn, keyname);
   }
 
-  private void buildParameters()
-  {
+  private void buildParameters() {
     for (int i = 0; i < this.params.length; i++) {
       this.params[i] = new String(TextGenerator.randomFastChars(rng(), this.data));
     }

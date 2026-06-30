@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<parameters>
+    <type>HANA</type>
+    <driver>com.sap.db.jdbc.Driver</driver>
+    <url>jdbc:sap://localhost:39015/?currentschema=SYSTEM</url>
+    <username>SYSTEM</username>
+    <password>YourPassword123</password>
+    
+    <benchmark>sqlstorm</benchmark>
+    
+    <queryDir>/path/to/SQLStorm/v1.0/stackoverflow/queries_generated</queryDir>
+
+    <terminals>1</terminals>
+    <works>
+        <work>
+            <time>600</time>
+            <rate>unlimited</rate>
+            <weights>100</weights>
+        </work>
+    </works>
+    <transactiontypes>
+        <transactiontype>
+            <name>ExecuteQuery</name>
+        </transactiontype>
+    </transactiontypes>
+</parameters>
